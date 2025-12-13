@@ -27,7 +27,7 @@ export function UploadWidgetUploadItem() {
         <Progress.Indicator className="bg-indigo-500 h-1" style={{width: '43%'}}/>
       </Progress.Root>
 
-      <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+      <div className="absolute top-2.5 right-2.5 flex items-center gap-2.5">
         <Button size="icon-sm">
           <Download className="size-4" strokeWidth={1.5} />
           <span className="sr-only">Download compressed image</span>
