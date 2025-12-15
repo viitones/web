@@ -2,19 +2,21 @@ import { enableMapSet } from "immer";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { UploadFileToStorage } from "../components/http/upload-file-to-storage";
+import { CanceledError } from "axios";
 
 export type Upload = {
   name: string;
   file: File;
   abortController: AbortController;
-  status: 'progress' | 'error' | 'success' | 'canceled' ;
+  status: 'progress' | 'error' | 'success' | 'canceled';
+  originalSizeInBytes: number;
+  uploadSizeInBytes: number;
 }
 
 type UploadState = {
   uploads: Map<string, Upload>
   addUploads: (files: File[]) => void
   cancelUpload: (uploadId: string) => void
-
 }
 
 enableMapSet();
@@ -27,7 +29,17 @@ immer((set, get) => {
 
     try {
       await UploadFileToStorage(
-      {file: upload.file},
+      {
+        file: upload.file,
+        onProgress(sizeInBytes) {
+          set(state => {
+            state.uploads.set(uploadId, {
+              ...upload,
+              uploadSizeInBytes: sizeInBytes,
+            })
+          })
+        },
+      },
       {signal: upload.abortController.signal}
     );
 
@@ -37,7 +49,18 @@ immer((set, get) => {
         status: 'success'
       })
     })
-    } catch (error) {
+    } catch (err) {
+      
+      if (err instanceof CanceledError) {
+        set(state => {
+        state.uploads.set(uploadId, {
+          ...upload,
+          status: 'canceled'
+          })
+        })
+        return;
+      }
+      
       set(state => {
         state.uploads.set(uploadId, {
           ...upload,
@@ -53,14 +76,6 @@ immer((set, get) => {
 
     upload.abortController.abort()
 
-
-    set(state => {
-      state.uploads.set(uploadId, {
-        ...upload,
-        status: 'canceled'
-      })
-    })
-
   }
 
 
@@ -70,9 +85,11 @@ immer((set, get) => {
       const abortController = new AbortController();
       const upload: Upload = {
         name: file.name,
-        status: 'progress',
         file,
+        status: 'progress',
         abortController,
+        originalSizeInBytes:file.size,
+        uploadSizeInBytes: 0,
       }
 
       set(state => {
