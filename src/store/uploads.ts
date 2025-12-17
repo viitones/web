@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { UploadFileToStorage } from "../components/http/upload-file-to-storage";
 import { CanceledError } from "axios";
+import { CompressImage } from "../utils/compress-image";
 
 export type Upload = {
   name: string;
@@ -27,10 +28,17 @@ immer((set, get) => {
     const upload = get().uploads.get(uploadId);
     if (!upload) return;
 
-    try {
+    try {     
+      const CompressImagedFile = await CompressImage({
+        file: upload.file,
+        maxWidth: 200,
+        maxHeight: 200,
+        quality: 0.8,
+      })
+
       await UploadFileToStorage(
       {
-        file: upload.file,
+        file: CompressImagedFile,
         onProgress(sizeInBytes) {
           set(state => {
             state.uploads.set(uploadId, {
@@ -41,14 +49,14 @@ immer((set, get) => {
         },
       },
       {signal: upload.abortController.signal}
-    );
+      );
 
-    set(state => {
-      state.uploads.set(uploadId, {
-        ...upload,
-        status: 'success'
+      set(state => {
+        state.uploads.set(uploadId, {
+          ...upload,
+          status: 'success'
+        })
       })
-    })
     } catch (err) {
       
       if (err instanceof CanceledError) {
