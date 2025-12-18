@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { useUploads, type Upload } from "../store/uploads";
 import { formatBytes } from "../utils/format-bytes";
 import { Button } from "./ui/button";
+import { forceDownload } from "../utils/download-image";
 
 interface UploadWidgetUploadItemProps {
   upload: Upload;
@@ -14,17 +15,30 @@ export function UploadWidgetUploadItem({
   upload,
   uploadId,
 }: UploadWidgetUploadItemProps) {
-
   const canceledUpload = useUploads((store) => store.cancelUpload);
 
   const progress = Math.min(
     upload.compressedSizeInBytes
-      ? Math.round((upload.uploadSizeInBytes * 100) / (upload.compressedSizeInBytes)) 
-      : 0, 
+      ? Math.round(
+          (upload.uploadSizeInBytes * 100) / upload.compressedSizeInBytes
+        )
+      : 0,
     100
-  )
+  );
 
-  
+  function handleForcedDownload (){
+    if (upload.status !== "success") return;
+    if (!upload.remoteUrl) return;
+
+    const newTab = window.open("about:blank", "_blank");
+    
+    forceDownload(upload.remoteUrl || "", upload.name);
+
+    if (newTab) {
+      newTab.location.href = upload.remoteUrl;
+    }
+
+  }
 
   return (
     <motion.div
@@ -40,11 +54,14 @@ export function UploadWidgetUploadItem({
         </span>
 
         <span className="text-xxs text-zinc-400 flex gap-1.5 items-center">
-          <span className="line-through">{formatBytes(upload.originalSizeInBytes)}</span>
+          <span className="line-through">
+            {formatBytes(upload.originalSizeInBytes)}
+          </span>
           <div className="size-1 rounded-full bg-zinc-700"></div>
           <span>
-            300KB
-            <span className="text-green-400 ml-1">-94%</span>
+            {formatBytes(upload.compressedSizeInBytes ?? 0)}
+            <span className="text-green-400 ml-1">
+              -{Math.round(((upload.originalSizeInBytes - (upload.compressedSizeInBytes ?? 0)) / upload.originalSizeInBytes) * 100)}%</span>
           </span>
           <div className="size-1 rounded-full bg-zinc-700"></div>
 
@@ -65,26 +82,39 @@ export function UploadWidgetUploadItem({
       >
         <Progress.Indicator
           className="bg-indigo-500 h-1 group-data-[status='success']:bg-green-400 group-data-[status='error']:bg-red-400 group-data-[status='canceled']:bg-yellow-400 transition-all"
-          style={{ width: upload.status === "progress" ? `${progress}%` : "100%" }}
+          style={{
+            width: upload.status === "progress" ? `${progress}%` : "100%",
+          }}
         />
       </Progress.Root>
 
       <div className="absolute top-2.5 right-2.5 flex items-center gap-2.5">
-        <Button disabled={upload.status !== "success"} size="icon-sm">
-          <Download className="size-4" strokeWidth={1.5} />
-          <span className="sr-only">Download compressed image</span>
+        <Button aria-disabled={upload.status !== "success"} size="icon-sm" onClick={handleForcedDownload}>
+            <Download className="size-4" strokeWidth={1.5} />
+            <span className="sr-only">Download compressed image</span>
         </Button>
-        <Button  disabled={!upload.remoteUrl} onClick={()=> upload.remoteUrl && navigator.clipboard.writeText(upload.remoteUrl)} size="icon-sm">
+        <Button
+          disabled={!upload.remoteUrl}
+          onClick={() =>
+            upload.remoteUrl && navigator.clipboard.writeText(upload.remoteUrl)
+          }
+          size="icon-sm"
+        >
           <Link2 className="size-4" strokeWidth={1.5} />
           <span className="sr-only">Copy remote url</span>
         </Button>
-        <Button 
-          disabled={!['canceled', 'error'].includes(upload.status)} size="icon-sm"
-          >
+        <Button
+          disabled={!["canceled", "error"].includes(upload.status)}
+          size="icon-sm"
+        >
           <RefreshCcw className="size-4" strokeWidth={1.5} />
           <span className="sr-only">Retry upload</span>
         </Button>
-        <Button disabled={upload.status !== "progress"} onClick={() => canceledUpload(uploadId)} size="icon-sm">
+        <Button
+          disabled={upload.status !== "progress"}
+          onClick={() => canceledUpload(uploadId)}
+          size="icon-sm"
+        >
           <X className="size-4" strokeWidth={1.5} />
           <span className="sr-only">Cancel upload</span>
         </Button>
