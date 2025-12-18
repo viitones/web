@@ -4,9 +4,12 @@ import { UploadWidgetDropzone } from "./upload-widget-dropzone";
 import { UploadWidgetHeader } from "./upload-widget-header";
 import { UploadWidgetMinimizedButton } from "./upload-widget-minimized-button";
 import { UploadWidgetUploadList } from "./upload-widget-upload-list";
+import { usePendingUploads } from "../store/uploads";
 
 export function UploadWidget() {
-  const isThereAnyPendingUploads = false;
+  const { isThereAnyPendingUploads } = usePendingUploads();
+
+  
   const [isWidgetOpen, toggleWidgetOpen] = useCycle(false, true);
 
   return (
