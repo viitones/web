@@ -9,7 +9,7 @@ import { CompressImage } from "../utils/compress-image";
 export type Upload = {
   name: string;
   file: File;
-  abortController: AbortController;
+  abortController?: AbortController;
   status: 'progress' | 'error' | 'success' | 'canceled';
   originalSizeInBytes: number;
   uploadSizeInBytes: number;
@@ -21,6 +21,7 @@ type UploadState = {
   uploads: Map<string, Upload>
   addUploads: (files: File[]) => void
   cancelUpload: (uploadId: string) => void
+  retryUpload: (uploadId: string) => void
 }
 
 enableMapSet();
@@ -41,6 +42,17 @@ immer((set, get) => {
   async function processUpload(uploadId: string) {
     const upload = get().uploads.get(uploadId);
     if (!upload) return;
+
+    const abortController = new AbortController();
+
+
+    updateUpload(uploadId, {
+      uploadSizeInBytes: 0,
+      status: 'progress',
+      remoteUrl: undefined,
+      compressedSizeInBytes: undefined,
+      abortController
+    })
 
     try {     
       const CompressImagedFile = await CompressImage({
@@ -63,7 +75,7 @@ immer((set, get) => {
           })
         },
       },
-      {signal: upload.abortController.signal}
+      {signal: abortController.signal}
       );
 
       updateUpload(uploadId, {
@@ -90,20 +102,21 @@ immer((set, get) => {
     const upload = get().uploads.get(uploadId);
     if (!upload) return;
 
-    upload.abortController.abort()
+    upload.abortController?.abort()
 
   }
 
+  function retryUpload(uploadId: string) {
+    processUpload(uploadId)
+  }
 
   function addUploads(files: File[]) {
     for (const file of files) {
       const uploadId = crypto.randomUUID();
-      const abortController = new AbortController();
       const upload: Upload = {
         name: file.name,
         file,
         status: 'progress',
-        abortController,
         originalSizeInBytes:file.size,
         uploadSizeInBytes: 0,
       }
@@ -120,6 +133,7 @@ immer((set, get) => {
     uploads: new Map(),
     addUploads,
     cancelUpload,
+    retryUpload,
   }
 })
 )
